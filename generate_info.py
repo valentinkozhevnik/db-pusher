@@ -1,10 +1,31 @@
 import string
+import re
 import random
 import datetime
 from word_generator import word_generate
 
 __author__ = 'smuravko'
 
+
+def gen(value, max_value=10000):
+    def find(info):
+        return re.findall(r'\((.*)\)', info)
+    def find_num(info):
+        return re.findall(r'[\d\-]+', info)
+    _and = False
+    if "AND" in value:
+        _and = True
+    if _and:
+        res1 = find(value)
+        minx, maxx = res1[0].split(' AND ')
+        return random.randint(int(find_num(find(minx)[0])[0])+1, int(find_num(find(maxx)[0])[0]) -1)
+    else:
+        if '>' in value:
+            val_in = find_num(find(value)[0])
+            return random.randint(int(val_in[0]) + 1, max_value)
+        elif '<' in value:
+            val_in = find_num(find(value)[0])
+            return random.randint(-max_value, int(val_in[0]) - 1)
 
 class GeneratorColumns(object):
     def __init__(self, type_enum=None):
@@ -13,6 +34,9 @@ class GeneratorColumns(object):
     def get_value(self, data, text_length=100):
         if not isinstance(data, dict):
             return 'error: in type'
+        if 'const' in data.keys():
+
+            return gen(data['const'])
 
         if data['utd'][:5] == 'float':
             max_bites = int(data['utd'][5:])

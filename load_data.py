@@ -1,7 +1,8 @@
 from itertools import groupby
 import random
 import psycopg2
-from settings import CORE_TABLE, DATABASE
+from settings import CORE_TABLE, DATABASE, \
+    FIRST_STEP_COUNT, CORE_TABLE_COUNT, CORE_TABLE_STACK
 from generate_info import GeneratorColumns
 from pprint import pprint
 __author__ = 'vako'
@@ -60,6 +61,20 @@ class Load_data(object):
         self.column_ord2 = sorted(self.column,
                                   key=lambda x:self.column[x]['ord'])
 
+        cursor.execute("""
+        select  col.table_name,
+          col.constraint_name, col.column_name, pgc.consrc
+        from information_schema.constraint_column_usage as col
+          LEFT JOIN pg_constraint as pgc ON col.constraint_name = pgc.conname
+        where
+          col.table_name = '%s' and
+          col.constraint_name LIke '%%check';
+        """ % table_name)
+
+        for a1, a2, a3, a4 in cursor.fetchall():
+            print('*'*100, a3, a4)
+            self.column[a3]['const'] = a4
+
         cursor.execute("""SELECT
             tc.constraint_name, tc.table_name, kcu.column_name,
             ccu.table_name AS foreign_table_name,
@@ -94,12 +109,28 @@ class Load_data(object):
         self.foreign_keys = set()
         for a1, a2, a3, a4, a5 in cursor.fetchall():
             self.foreign_keys.add(a3)
-            data = self.column.get(a3, None)
+            print(a1, a2, a3, a4, a5)
+            data = _dict.get(a4, None)
+            # print(data)
+            # print(isinstance(data, Load_data))
+            if a2 == a4:
+                # self.column[a3] = self
+                self.foreign_keys -= set([a3])
+                del self.column[a3]
+                # print(self.column_ord, self.column_ord2)
+                self.column_ord2 = list(filter(lambda x: x != a3, self.column_ord2))
+                # del self.column_ord2[a3]
+                # del self.column_ord[a3]
+                continue
             if isinstance(data, Load_data):
-                self.column[a3].level += 1
+                self.column[a3] = _dict[a4]
+                _dict[a4].level += 1
+                if a4 == a4:
+                    continue
             else:
                 self.column[a3] = Load_data(a4, level+1, gener=gener)
         _dict[table_name] = self
+        # print(_dict)
         self.get_primary_list()
 
     def get_primary_list(self):
@@ -136,8 +167,8 @@ class Load_data(object):
 if __name__ == '__main__':
     gener = GeneratorColumns(type_enum=enum_database())
     Load_data(CORE_TABLE, gener=gener)
-    create_count = 1
-
+    create_count = FIRST_STEP_COUNT
+    pprint(_dict['customers_customer'])
     sort_table = sorted(_dict, key=lambda x: _dict[x].level, reverse=True)
 
     for i in sort_table:
@@ -163,10 +194,10 @@ if __name__ == '__main__':
             conn.rollback()
         _dict[i].get_primary_list()
 
-    for ds in range(10000):
+    for ds in range(CORE_TABLE_COUNT):
         d = "INSERT INTO %s (%s) VALUES %s"
         lists = []
-        for i in range(100):
+        for i in range(CORE_TABLE_STACK):
             lists.append(str(tuple(_dict[CORE_TABLE].add_value())))
         res = (d % (
             CORE_TABLE,
@@ -179,4 +210,5 @@ if __name__ == '__main__':
             conn.commit()
         except (psycopg2.IntegrityError, psycopg2.InternalError) as e:
             print('reload ', e)
+            # pprint(res)
             conn.rollback()

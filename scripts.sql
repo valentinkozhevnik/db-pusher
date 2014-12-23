@@ -2,8 +2,8 @@ SELECT table_name FROM information_schema.tables
            WHERE table_schema = 'public';
 
 
-select col.column_name, col.data_type, col.udt_name, col.character_maximum_length, *
-from information_schema.columns as col where table_name = 'essays_order';
+select  *
+from information_schema.constraint_table_usage as col where table_name = 'customers_customer';
 
 
 SELECT
@@ -19,7 +19,7 @@ FROM
       ON ccu.constraint_name = tc.constraint_name
 WHERE
 --   constraint_type = 'FOREIGN KEY' AND
-      tc.table_name='essays_order';
+      tc.table_name='customers_customer';
 
 
 SELECT *
